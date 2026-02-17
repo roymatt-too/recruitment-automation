@@ -1,0 +1,36 @@
+[DEFAULT]
+# Ban hosts for 1 hour
+bantime = 3600
+
+# 5 failures within 10 minutes triggers ban
+findtime = 600
+maxretry = 5
+
+# Email notifications (optional)
+# destemail = your-email@example.com
+# sendername = Fail2Ban
+# action = %(action_mwl)s
+
+[sshd]
+enabled = true
+port = ssh
+logpath = /var/log/auth.log
+maxretry = 3
+bantime = 7200
+
+[openclaw-http]
+enabled = true
+port = http,https
+logpath = /var/log/caddy/access.log
+maxretry = 10
+findtime = 300
+bantime = 1800
+filter = openclaw-http
+
+[openclaw-telegram]
+enabled = true
+logpath = /var/log/openclaw/*.log
+maxretry = 5
+findtime = 600
+bantime = 3600
+filter = openclaw-telegram
