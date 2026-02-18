@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Telegram Bot Setup Script for OpenClaw
-# This script helps you set up a Telegram bot for OpenClaw integration
+# Telegram Bot Setup Script for Claude Code
+# This script helps you set up a Telegram bot for Claude Code integration
 
 set -e
 
 echo "=================================="
-echo "OpenClaw Telegram Bot Setup"
+echo "Claude Code Telegram Bot Setup"
 echo "=================================="
 echo ""
 
@@ -14,6 +14,7 @@ echo ""
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Check if .env file exists
@@ -21,13 +22,13 @@ if [ -f .env ]; then
     echo -e "${YELLOW}Warning: .env file already exists.${NC}"
     read -p "Do you want to overwrite it? (y/n): " overwrite
     if [ "$overwrite" != "y" ]; then
-        echo "Using existing .env file..."
-        source .env
+        echo "Setup cancelled. Using existing .env file."
+        exit 0
     fi
-else
-    echo "Creating .env file from template..."
-    cp .env.example .env
 fi
+
+echo "Creating .env file from template..."
+cp .env.example .env
 
 # Function to update .env file
 update_env() {
@@ -41,13 +42,13 @@ update_env() {
 }
 
 echo ""
-echo "Step 1: Telegram Bot Token"
+echo -e "${BLUE}Step 1: Telegram Bot Setup${NC}"
 echo "-----------------------------------"
 echo "To create a Telegram bot:"
 echo "1. Open Telegram and search for @BotFather"
 echo "2. Send /newbot command"
 echo "3. Follow the prompts to set bot name and username"
-echo "4. Copy the bot token"
+echo "4. Copy the bot token and username"
 echo ""
 read -p "Enter your Telegram Bot Token: " BOT_TOKEN
 
@@ -56,87 +57,68 @@ if [ -z "$BOT_TOKEN" ]; then
     exit 1
 fi
 
+read -p "Enter your Telegram Bot Username (without @): " BOT_USERNAME
+
+if [ -z "$BOT_USERNAME" ]; then
+    echo -e "${RED}Error: Bot username is required${NC}"
+    exit 1
+fi
+
 update_env "TELEGRAM_BOT_TOKEN" "$BOT_TOKEN"
-echo -e "${GREEN}✓ Bot token saved${NC}"
+update_env "TELEGRAM_BOT_USERNAME" "$BOT_USERNAME"
+echo -e "${GREEN}✓ Bot credentials saved${NC}"
 
 echo ""
-echo "Step 2: Get Your Telegram User ID"
+echo -e "${BLUE}Step 2: User Access Control${NC}"
 echo "-----------------------------------"
 echo "To get your Telegram user ID:"
 echo "1. Open Telegram and search for @userinfobot"
 echo "2. Send /start command"
 echo "3. Copy your user ID"
 echo ""
-read -p "Enter your Telegram User ID (comma-separated for multiple users): " USER_IDS
+read -p "Enter Telegram User ID(s) - comma-separated for multiple users: " USER_IDS
 
 if [ -z "$USER_IDS" ]; then
     echo -e "${YELLOW}Warning: No user IDs provided. Bot will be accessible to everyone!${NC}"
+    read -p "Are you sure? (y/n): " confirm
+    if [ "$confirm" != "y" ]; then
+        exit 1
+    fi
 else
-    update_env "TELEGRAM_ALLOWED_USERS" "$USER_IDS"
+    update_env "ALLOWED_USERS" "$USER_IDS"
     echo -e "${GREEN}✓ User IDs saved${NC}"
 fi
 
 echo ""
-echo "Step 3: AI Model Configuration"
+echo -e "${BLUE}Step 3: Project Directory${NC}"
 echo "-----------------------------------"
-echo "Choose your AI provider:"
-echo "1. Anthropic Claude (Recommended)"
-echo "2. OpenAI GPT"
-echo "3. Both"
-read -p "Enter your choice (1-3): " AI_CHOICE
+echo "This is the base directory where your projects will be accessible."
+echo "Default: /opt/openclaw/projects"
+echo ""
+read -p "Enter project directory [/opt/openclaw/projects]: " PROJECT_DIR
+PROJECT_DIR=${PROJECT_DIR:-/opt/openclaw/projects}
 
-case $AI_CHOICE in
-    1)
-        read -p "Enter your Anthropic API Key: " ANTHROPIC_KEY
-        update_env "ANTHROPIC_API_KEY" "$ANTHROPIC_KEY"
-        update_env "DEFAULT_MODEL" "claude-sonnet-4-5-20250929"
-        echo -e "${GREEN}✓ Anthropic configured${NC}"
-        ;;
-    2)
-        read -p "Enter your OpenAI API Key: " OPENAI_KEY
-        update_env "OPENAI_API_KEY" "$OPENAI_KEY"
-        update_env "DEFAULT_MODEL" "gpt-4"
-        echo -e "${GREEN}✓ OpenAI configured${NC}"
-        ;;
-    3)
-        read -p "Enter your Anthropic API Key: " ANTHROPIC_KEY
-        read -p "Enter your OpenAI API Key: " OPENAI_KEY
-        update_env "ANTHROPIC_API_KEY" "$ANTHROPIC_KEY"
-        update_env "OPENAI_API_KEY" "$OPENAI_KEY"
-        update_env "DEFAULT_MODEL" "claude-sonnet-4-5-20250929"
-        echo -e "${GREEN}✓ Both providers configured${NC}"
-        ;;
-    *)
-        echo -e "${RED}Invalid choice${NC}"
-        exit 1
-        ;;
-esac
+update_env "APPROVED_DIRECTORY" "$PROJECT_DIR"
+echo -e "${GREEN}✓ Project directory configured${NC}"
 
 echo ""
-echo "Step 4: Domain Configuration (Optional for TLS)"
-echo "-----------------------------------"
-read -p "Do you have a domain name for HTTPS? (y/n): " HAS_DOMAIN
-
-if [ "$HAS_DOMAIN" = "y" ]; then
-    read -p "Enter your domain name (e.g., bot.example.com): " DOMAIN
-    read -p "Enter your email for TLS certificate: " EMAIL
-    update_env "DOMAIN" "$DOMAIN"
-    update_env "EMAIL" "$EMAIL"
-    echo -e "${GREEN}✓ Domain configured${NC}"
-else
-    update_env "DOMAIN" "localhost"
-    echo -e "${YELLOW}Using localhost. HTTPS will not be available.${NC}"
-fi
-
-echo ""
-echo "=================================="
+echo -e "${BLUE}=================================="
 echo "Setup Complete!"
-echo "=================================="
+echo "==================================${NC}"
+echo ""
+echo -e "${GREEN}✓ Configuration saved to .env${NC}"
+echo ""
+echo -e "${YELLOW}Important Notes:${NC}"
+echo "• This bot uses your Claude Code subscription (no API key needed!)"
+echo "• You'll authenticate with Claude CLI during VPS deployment"
+echo "• The bot will have access to files in: $PROJECT_DIR"
 echo ""
 echo "Next steps:"
 echo "1. Review .env file and adjust settings if needed"
 echo "2. Run: ./scripts/deploy-to-vps.sh (to deploy to VPS)"
-echo "   OR"
-echo "   Run: docker-compose up -d (to run locally)"
 echo ""
-echo -e "${GREEN}Your bot is ready to be deployed!${NC}"
+echo -e "${BLUE}Bot Configuration Summary:${NC}"
+echo "• Bot Username: @$BOT_USERNAME"
+echo "• Authorized Users: $USER_IDS"
+echo "• Project Directory: $PROJECT_DIR"
+echo ""

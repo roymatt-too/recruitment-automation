@@ -1,21 +1,23 @@
-# OpenClaw Telegram Bot - VPS Deployment
+# Claude Code Telegram Bot - VPS Deployment
 
-OpenClaw を VPS にデプロイし、Telegram から AI アシスタントを操作するためのプロジェクトです。
+VPS上でClaude Codeを実行し、Telegramから操作するためのプロジェクトです。
 
-## 🌟 特徴
+**🎉 特徴: APIキー不要！Claude Codeサブスクリプションだけで動作します！**
 
-- **🤖 AI 自動化**: OpenClaw を使用した強力な AI アシスタント
-- **💬 Telegram 連携**: Telegram から直接 AI と対話
-- **🔒 セキュリティ**: TLS、Fail2ban、ファイアウォールによる保護
-- **🐳 Docker**: コンテナ化による簡単なデプロイ
-- **🚀 自動デプロイ**: ワンコマンドで VPS にデプロイ
+## 🌟 主な機能
+
+- **💬 Telegram連携**: Telegramから直接Claude Codeを操作
+- **🔒 サブスクリプション使用**: 追加のAPI料金不要
+- **🐍 Python環境**: Poetry + systemdで安定動作
+- **🚀 自動デプロイ**: ワンコマンドでVPSにデプロイ
+- **🔐 セキュリティ**: ユーザーIDホワイトリストで保護
 
 ## 📋 前提条件
 
 - VPS (2 CPU, 4GB RAM, 20GB ストレージ推奨)
 - SSH アクセス権限
 - Telegram アカウント
-- Anthropic または OpenAI の API キー
+- **Claude Code サブスクリプション** (Max, Team, または Enterprise)
 
 ## 🚀 クイックスタート
 
@@ -26,170 +28,148 @@ git clone https://github.com/roymatt-too/recruitment-automation.git
 cd recruitment-automation
 ```
 
-### 2. Telegram Bot のセットアップ
+### 2. Telegram Botのセットアップ
 
 ```bash
+chmod +x scripts/*.sh
 ./scripts/setup-telegram-bot.sh
 ```
 
-このスクリプトが以下を行います:
-- Telegram Bot トークンの設定
-- ユーザー ID の設定
-- AI モデルの選択と API キー設定
-- ドメイン設定 (オプション)
+このスクリプトで設定する項目:
+- Telegram Bot Token (@BotFather から取得)
+- Bot Username
+- 許可するユーザーID (@userinfobot から取得)
+- プロジェクトディレクトリ
 
-### 3. VPS へのデプロイ
+**重要: APIキーは不要です！**
+
+### 3. VPSへのデプロイ
 
 ```bash
 ./scripts/deploy-to-vps.sh
 ```
 
 デプロイスクリプトが自動的に:
-- Docker と Docker Compose のインストール
-- ファイアウォールの設定
-- プロジェクトのアップロード
-- サービスの起動
+1. ✅ システム依存関係のインストール (Python, Poetry, Node.js, Claude CLI)
+2. ✅ claude-code-telegramリポジトリのクローン
+3. ✅ Python依存関係のインストール
+4. ✅ 設定ファイルのアップロード
+5. ✅ Claude CLI認証（ブラウザで認証）
+6. ✅ systemdサービスの設定と起動
 
-### 4. Telegram Bot のテスト
+### 4. Claude CLI認証
 
-Telegram で bot を検索し、メッセージを送信してください。
+デプロイ中に、以下の指示が表示されます:
+
+1. VPSにSSH接続
+2. `claude auth login` を実行
+3. ブラウザで認証フローを完了
+4. デプロイスクリプトに戻って続行
+
+### 5. Telegram Botのテスト
+
+Telegramでbotを検索し、メッセージを送信してください。
 
 ## 📁 プロジェクト構造
 
 ```
 recruitment-automation/
-├── docker-compose.yml          # Docker Compose 設定
 ├── .env.example                # 環境変数テンプレート
-├── .env                        # 環境変数 (自動生成、Git 無視)
-├── config/
-│   ├── Caddyfile              # Caddy (リバースプロキシ + TLS) 設定
-│   └── fail2ban/              # Fail2ban セキュリティ設定
+├── .env                        # 環境変数 (自動生成、Git無視)
 ├── scripts/
 │   ├── setup-telegram-bot.sh  # Telegram Bot セットアップ
 │   ├── deploy-to-vps.sh       # VPS デプロイスクリプト
 │   ├── update-vps.sh          # VPS 更新スクリプト
 │   └── troubleshoot.sh        # トラブルシューティング
-├── data/                      # データディレクトリ (自動生成)
-├── logs/                      # ログディレクトリ (自動生成)
 └── docs/                      # ドキュメント
 ```
 
-## 🔧 設定
+## 🔧 環境変数
 
-### 環境変数
-
-`.env` ファイルで以下を設定します:
+`.env`ファイルで設定します:
 
 ```bash
 # Telegram
 TELEGRAM_BOT_TOKEN=your_bot_token
-TELEGRAM_ALLOWED_USERS=123456789,987654321
+TELEGRAM_BOT_USERNAME=your_bot_username
+ALLOWED_USERS=123456789
 
-# AI Model
-ANTHROPIC_API_KEY=your_key
-DEFAULT_MODEL=claude-sonnet-4-5-20250929
+# プロジェクトディレクトリ
+APPROVED_DIRECTORY=/opt/openclaw/projects
 
-# Domain (HTTPS用)
-DOMAIN=your-domain.com
-EMAIL=your-email@example.com
+# Claude設定
+USE_SDK=true
+ANTHROPIC_API_KEY=  # 空でOK！Claude CLI認証を使用
+
+# 環境設定
+ENVIRONMENT=production
+DEBUG=false
+DEVELOPMENT_MODE=false
 ```
-
-### Telegram Bot の作成
-
-1. Telegram で [@BotFather](https://t.me/BotFather) を検索
-2. `/newbot` コマンドを送信
-3. ボット名とユーザー名を設定
-4. Bot Token を取得
-
-### ユーザー ID の取得
-
-1. Telegram で [@userinfobot](https://t.me/userinfobot) を検索
-2. `/start` を送信
-3. User ID をコピー
 
 ## 🛠️ 管理コマンド
 
 ### ログの確認
 
 ```bash
-ssh user@vps-ip 'cd /opt/openclaw && docker-compose logs -f'
+ssh user@vps-ip 'journalctl --user -u claude-telegram-bot -f'
 ```
 
 ### サービスの再起動
 
 ```bash
-ssh user@vps-ip 'cd /opt/openclaw && docker-compose restart'
+ssh user@vps-ip 'systemctl --user restart claude-telegram-bot'
 ```
 
 ### サービスの停止
 
 ```bash
-ssh user@vps-ip 'cd /opt/openclaw && docker-compose down'
+ssh user@vps-ip 'systemctl --user stop claude-telegram-bot'
 ```
 
-### 更新
+### サービスの状態確認
 
 ```bash
-./scripts/update-vps.sh
-```
-
-### トラブルシューティング
-
-```bash
-./scripts/troubleshoot.sh
+ssh user@vps-ip 'systemctl --user status claude-telegram-bot'
 ```
 
 ## 🔒 セキュリティ
 
-このプロジェクトには以下のセキュリティ機能が含まれています:
-
-- **TLS/HTTPS**: Caddy による自動 TLS 証明書
-- **Fail2ban**: 不正アクセスの自動ブロック
-- **ファイアウォール**: UFW による最小限のポート開放
 - **ユーザー制限**: Telegram ユーザー ID ホワイトリスト
-- **コンテナ分離**: Docker による隔離環境
-- **自動アップデート**: セキュリティパッチの自動適用
-
-## 📊 モニタリング
-
-### ヘルスチェック
-
-```bash
-curl http://your-vps-ip:3000/health
-```
-
-### Docker 統計
-
-```bash
-ssh user@vps-ip 'docker stats'
-```
+- **プロジェクト分離**: サンドボックス化されたプロジェクトディレクトリ
+- **レート制限**: トークンバケットアルゴリズムによる制限
+- **監査ログ**: 全操作のログ記録
+- **自動再起動**: systemdによる自動復旧
 
 ## 🐛 トラブルシューティング
 
-### Bot が応答しない
+### Botが応答しない
 
-1. `.env` の `TELEGRAM_BOT_TOKEN` を確認
-2. @BotFather で bot が有効か確認
-3. ログを確認: `docker-compose logs openclaw`
+1. サービス状態を確認: `systemctl --user status claude-telegram-bot`
+2. ログを確認: `journalctl --user -u claude-telegram-bot -n 50`
+3. `.env`の`TELEGRAM_BOT_TOKEN`を確認
+4. `ALLOWED_USERS`にあなたのUser IDが含まれているか確認
 
-### API エラー
+### Claude CLI認証エラー
 
-1. API キーが正しいか確認
-2. API クレジットが残っているか確認
-3. レート制限を確認
+1. VPSにSSH接続
+2. `claude auth status`で認証状態を確認
+3. 未認証の場合: `claude auth login`を実行
 
-### VPS に接続できない
+### サービスが起動しない
 
-1. ファイアウォールでポート 80, 443 が開いているか確認
-2. DNS 設定を確認
-3. Caddy の設定を確認
+```bash
+# 手動でbotを起動してエラーを確認
+cd /opt/openclaw/claude-code-telegram
+poetry run claude-telegram-bot
+```
 
 ## 📚 参考資料
 
-- [OpenClaw 公式ドキュメント](https://docs.openclaw.ai)
+- [claude-code-telegram GitHub](https://github.com/RichardAtCT/claude-code-telegram)
+- [Claude Code Documentation](https://claude.ai/code)
 - [Telegram Bot API](https://core.telegram.org/bots/api)
-- [Docker ドキュメント](https://docs.docker.com)
-- [Caddy ドキュメント](https://caddyserver.com/docs)
+- [Poetry Documentation](https://python-poetry.org/docs/)
 
 ## 🤝 貢献
 
@@ -199,28 +179,29 @@ ssh user@vps-ip 'docker stats'
 
 MIT License
 
-## ⚡ ベストプラクティス
+## ⚡ 技術スタック
 
-このプロジェクトは 2026 年の以下のベストプラクティスに従っています:
+このプロジェクトは以下の技術を使用しています:
 
-- ✅ Docker によるコンテナ化
-- ✅ 自動 TLS 証明書 (Let's Encrypt)
-- ✅ セキュリティ強化 (Fail2ban, Firewall)
-- ✅ ログローテーション
-- ✅ 自動セキュリティアップデート
-- ✅ 最小権限の原則
-- ✅ 環境変数による設定管理
-- ✅ ヘルスチェック
+- ✅ Python 3.10+ + Poetry
+- ✅ Claude Agent SDK
+- ✅ python-telegram-bot
+- ✅ systemd (サービス管理)
+- ✅ Claude CLI (認証)
+- ✅ SQLite (セッション永続化)
+
+## 💰 コスト
+
+- **VPS**: 月額 $6-40 (プロバイダーとスペックによる)
+- **Claude Code サブスクリプション**: 既存のサブスクリプションを使用
+- **追加のAPI料金**: なし！
 
 ## 📞 サポート
 
-問題が発生した場合は、Issue を作成してください。
+問題が発生した場合は、Issueを作成してください。
 
 ---
 
-**Sources:**
-- [OpenClaw AI: Complete Setup and Automation Guide 2026](https://www.digitalapplied.com/blog/openclaw-ai-complete-guide-setup-skills-automation)
-- [OpenClaw (Clawd Bot) Telegram integration: A complete guide](https://www.eesel.ai/blog/clawd-bot-telegram-integration)
-- [Running OpenClaw in Docker: Secure Local Setup and Practical Workflow Guide](https://aimlapi.com/blog/running-openclaw-in-docker-secure-local-setup-and-practical-workflow-guide)
-- [OpenClaw security: Risks, best practices, and a checklist](https://www.hostinger.com/tutorials/openclaw-security)
-- [Technical Deep Dive: How we Created a Security-hardened 1-Click Deploy OpenClaw](https://www.digitalocean.com/blog/technical-dive-openclaw-hardened-1-click-app)
+**Based on:**
+- [RichardAtCT/claude-code-telegram](https://github.com/RichardAtCT/claude-code-telegram)
+- Claude Code CLI integration
