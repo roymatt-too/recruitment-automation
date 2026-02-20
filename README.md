@@ -101,11 +101,24 @@ APPROVED_DIRECTORY=/opt/openclaw/projects
 USE_SDK=true
 ANTHROPIC_API_KEY=  # 空でOK！Claude CLI認証を使用
 
+# モード設定（重要！）
+AGENTIC_MODE=true  # 自然な会話モード（推奨）、falseでクラシックモード
+
+# パフォーマンス最適化
+CLAUDE_MAX_TURNS=999
+CLAUDE_TIMEOUT_SECONDS=1200
+CLAUDE_MAX_COST_PER_USER=50.0
+RATE_LIMIT_REQUESTS=100
+RATE_LIMIT_WINDOW=60
+SESSION_TIMEOUT_HOURS=168
+
 # 環境設定
 ENVIRONMENT=production
 DEBUG=false
 DEVELOPMENT_MODE=false
 ```
+
+**重要**: `AGENTIC_MODE=true`は必須です。これにより過度なコマンド検証をスキップし、Claude Codeの内蔵サンドボックスを活用します。
 
 ## 🛠️ 管理コマンド
 
