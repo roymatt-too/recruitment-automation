@@ -31,6 +31,7 @@ from patchright.sync_api import sync_playwright
 JOBINS_URL = "https://jobins.jp"
 DATA_DIR = Path(__file__).parent / "jobins_data"
 COOKIE_FILE = DATA_DIR / "cookies.json"
+PROFILE_DIR = DATA_DIR / "browser_profile"
 SCREENSHOT_DIR = DATA_DIR / "screenshots"
 LOG_FILE = DATA_DIR / "jobins.log"
 RESULT_FILE = DATA_DIR / "latest_result.json"
@@ -121,79 +122,38 @@ def take_screenshot(page, name="page"):
 
 
 def create_browser(playwright):
-    """本物のWindows Chromeとして起動（検出対策済み）"""
-    browser = playwright.chromium.launch(
+    """永続プロファイル付きでブラウザ起動（Cookie/セッション自動保持）"""
+    context = playwright.chromium.launch_persistent_context(
+        user_data_dir=str(PROFILE_DIR),
         headless=HEADLESS,
-        channel="chrome",  # 本物のGoogle Chromeを使用（Chromiumではなく）
-        args=[
-            "--disable-blink-features=AutomationControlled",
-            "--lang=ja-JP",
-            "--disable-features=IsolateOrigins,site-per-process",
-            # WebRTCリーク防止
-            "--disable-webrtc",
-            "--enforce-webrtc-ip-permission-check",
-            "--webrtc-ip-handling-policy=disable_non_proxied_udp",
-        ],
     )
-    context = browser.new_context(
-        viewport={"width": 1920, "height": 1080},
-        locale="ja-JP",
-        timezone_id="Asia/Tokyo",
-        # User-Agentは設定しない → 本物のChromeのUAがそのまま使われる
-        # これにより UA/TLS/Canvas の全フィンガープリントが自然に一致する
-        color_scheme="light",
-        java_script_enabled=True,
-        has_touch=False,
-        is_mobile=False,
-    )
-
-    # WebRTCを完全無効化（IPリーク防止）
-    context.add_init_script("""
-        // WebRTC IPリーク防止
-        if (window.RTCPeerConnection) {
-            window.RTCPeerConnection = class extends window.RTCPeerConnection {
-                constructor(config) {
-                    if (config && config.iceServers) {
-                        config.iceServers = [];
-                    }
-                    super(config);
-                }
-            };
-        }
-
-        // Notification API（ボット検出に使われることがある）
-        if (Notification.permission === 'default') {
-            Object.defineProperty(Notification, 'permission', {
-                get: () => 'default'
-            });
-        }
-    """)
-
-    return browser, context
+    return context
 
 
 # === メイン機能 ===
 
 
 def manual_login():
-    """手動ログインモード - Cookieを保存"""
+    """手動ログインモード - ブラウザプロファイルに自動保存"""
     log.info("=== 手動ログインモード ===")
     log.info("ブラウザが開きます。手動でログインしてください。")
 
     with sync_playwright() as p:
-        browser, context = create_browser(p)
+        context = create_browser(p)
         page = context.new_page()
 
-        page.goto(JOBINS_URL, wait_until="networkidle")
+        page.goto(JOBINS_URL)
         human_delay(2, 3)
 
         input("\n>>> ログインが完了したらEnterキーを押してください... ")
 
-        save_cookies(context)
         take_screenshot(page, "after_login")
-        log.info("ログイン情報を保存しました。")
 
-        browser.close()
+        # Cookieを明示的にファイルにも保存（セッションCookie対策）
+        save_cookies(context)
+        log.info("ログイン情報をブラウザプロファイル + Cookieファイルに保存しました。")
+
+        context.close()
 
 
 def check_applications(page):
@@ -263,24 +223,27 @@ def check_applications(page):
 
 
 def auto_mode():
-    """自動モード - Cookie使用して新着確認"""
-    if not COOKIE_FILE.exists():
-        log.error("Cookieファイルが見つかりません。")
+    """自動モード - 永続プロファイル + Cookie復元で新着確認"""
+    if not COOKIE_FILE.exists() and not PROFILE_DIR.exists():
+        log.error("ログイン情報が見つかりません。")
         log.error("まず --login で手動ログインしてください:")
         log.error("  python jobins_auto.py --login")
-        save_result({"status": "error", "message": "Cookie未設定。--loginで初回ログイン必要"})
+        save_result({"status": "error", "message": "未ログイン。--loginで初回ログイン必要"})
         return
 
     log.info("=== 自動モード ===")
 
     with sync_playwright() as p:
-        browser, context = create_browser(p)
-        load_cookies(context)
+        context = create_browser(p)
+
+        # 保存されたCookieを明示的に復元（セッションCookie対策）
+        if COOKIE_FILE.exists():
+            load_cookies(context)
 
         page = context.new_page()
 
-        # JoBinsにアクセス（Cookieで自動ログイン）
-        page.goto(JOBINS_URL, wait_until="networkidle")
+        # JoBinsにアクセス（プロファイル + Cookie復元で自動ログイン）
+        page.goto(JOBINS_URL)
         human_delay(2, 4)
 
         # 人間的な動作をシミュレート
@@ -294,7 +257,7 @@ def auto_mode():
         if "login" in current_url.lower() or "signin" in current_url.lower():
             log.warning("セッション切れ。再ログインが必要です。")
             save_result({"status": "error", "message": "セッション切れ。--loginで再ログイン必要"})
-            browser.close()
+            context.close()
             return
 
         log.info("ログイン成功！")
@@ -302,9 +265,7 @@ def auto_mode():
         # 新着応募を確認
         result = check_applications(page)
 
-        # Cookie更新して保存
-        save_cookies(context)
-        browser.close()
+        context.close()
 
         return result
 
@@ -337,14 +298,17 @@ def run_server(port=8585):
                     self._respond(404, {"status": "error", "message": "結果なし"})
 
             elif self.path == "/cookies-status":
-                exists = COOKIE_FILE.exists()
+                cookie_exists = COOKIE_FILE.exists()
+                profile_exists = PROFILE_DIR.exists()
                 age = None
-                if exists:
+                if cookie_exists:
                     age = time.time() - COOKIE_FILE.stat().st_mtime
                 self._respond(200, {
-                    "cookies_exist": exists,
+                    "cookies_exist": cookie_exists,
+                    "profile_exist": profile_exists,
                     "age_seconds": age,
                     "age_hours": round(age / 3600, 1) if age else None,
+                    "ready": cookie_exists or profile_exists,
                 })
 
             else:
